@@ -20,6 +20,8 @@ import net.runelite.api.events.GameObjectDespawned;
 import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.PlayerDespawned;
+import net.runelite.api.events.PlayerSpawned;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -122,6 +124,43 @@ public class TreeCountPlugin extends Plugin
 		{
 			treeMap.clear();
 			playerMap.clear();
+		}
+	}
+
+	@Subscribe
+	public void onPlayerSpawned(final PlayerSpawned event)
+	{
+		Player player = event.getPlayer();
+
+		if (isWoodcutting(player))
+		{
+			// Now we have to find the closest tree to the player that we are facing
+			// Orientation: N=1024, E=1536, S=0, W=512, where we would filter tile loc N = y+1, E= x+1, S=y-1, W=x-1
+			GameObject closestTree = findClosestFacingTree(player);
+			if (closestTree == null)
+			{
+				return;
+			}
+			playerMap.put(player, closestTree);
+			int choppers = treeMap.getOrDefault(closestTree, 0) + 1;
+			treeMap.put(closestTree, choppers);
+		}
+	}
+
+	@Subscribe
+	public void onPlayerDespawned(final PlayerDespawned event)
+	{
+		Player player = event.getPlayer();
+
+		GameObject tree = playerMap.get(player);
+		if (playerMap.containsKey(player))
+		{
+			playerMap.remove(player);
+			if (treeMap.containsKey(tree))
+			{
+				int choppers = treeMap.getOrDefault(tree, 1) - 1;
+				treeMap.put(tree, choppers);
+			}
 		}
 	}
 
