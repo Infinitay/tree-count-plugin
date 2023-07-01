@@ -54,6 +54,8 @@ public class TreeCountPlugin extends Plugin
 
 	private int previousPlane;
 
+	private boolean firstRun;
+
 	@Provides
 	TreeCountConfig provideConfig(ConfigManager configManager)
 	{
@@ -73,11 +75,13 @@ public class TreeCountPlugin extends Plugin
 		treeMap.clear();
 		playerMap.clear();
 		previousPlane = -1;
+		firstRun = true;
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick gameTick)
 	{
+		// Event runs third (or last) upon login
 		int currentPlane = client.getPlane();
 		if (previousPlane != currentPlane)
 		{
@@ -86,11 +90,35 @@ public class TreeCountPlugin extends Plugin
 			playerMap.clear();
 			previousPlane = currentPlane;
 		}
+
+		if (firstRun)
+		{
+			firstRun = false;
+			// Any missing players just in case, although it's not really required. Doesn't hurt since one time operation
+			client.getPlayers().forEach(player -> playerMap.putIfAbsent(player, null));
+			for (Player player : playerMap.keySet())
+			{
+				if (isWoodcutting(player) && !treeMap.isEmpty())
+				{
+					// Now we have to find the closest tree to the player that we are facing
+					// Orientation: N=1024, E=1536, S=0, W=512, where we would filter tile loc N = y+1, E= x+1, S=y-1, W=x-1
+					GameObject closestTree = findClosestFacingTree(player);
+					if (closestTree == null)
+					{
+						return;
+					}
+					playerMap.put(player, closestTree);
+					int choppers = treeMap.getOrDefault(closestTree, 0) + 1;
+					treeMap.put(closestTree, choppers);
+				}
+			}
+		}
 	}
 
 	@Subscribe
 	public void onGameObjectSpawned(final GameObjectSpawned event)
 	{
+		// Event runs first upon login
 		GameObject gameObject = event.getGameObject();
 		Tree tree = Tree.findTree(gameObject.getId());
 
@@ -124,13 +152,22 @@ public class TreeCountPlugin extends Plugin
 		{
 			treeMap.clear();
 			playerMap.clear();
+			firstRun = true;
 		}
 	}
 
 	@Subscribe
 	public void onPlayerSpawned(final PlayerSpawned event)
 	{
+		// Event runs second upon login
 		Player player = event.getPlayer();
+		log.debug("Player {} spawned at {}", player.getName(), player.getWorldLocation());
+
+		if (firstRun)
+		{
+			playerMap.put(player, null);
+			return;
+		}
 
 		if (isWoodcutting(player))
 		{
@@ -152,6 +189,12 @@ public class TreeCountPlugin extends Plugin
 	{
 		Player player = event.getPlayer();
 
+		if (firstRun)
+		{
+			playerMap.remove(player);
+			return;
+		}
+
 		GameObject tree = playerMap.get(player);
 		if (playerMap.containsKey(player))
 		{
@@ -167,6 +210,11 @@ public class TreeCountPlugin extends Plugin
 	@Subscribe
 	public void onAnimationChanged(final AnimationChanged event)
 	{
+		if (firstRun)
+		{
+			return;
+		}
+
 		if (event.getActor() instanceof Player)
 		{
 			Player player = (Player) event.getActor();
