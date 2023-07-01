@@ -89,7 +89,6 @@ public class TreeCountPlugin extends Plugin
 		{
 			// Only clear values because sometimes the trees are still there when changing planes (Top of Seer's Bank)
 			treeMap.replaceAll((k, v) -> 0);
-			playerMap.clear();
 			previousPlane = currentPlane;
 		}
 
