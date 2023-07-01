@@ -38,7 +38,7 @@ public class TreeCountOverlay extends Overlay
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
-		renderDebugOverlay(graphics);
+		// renderDebugOverlay(graphics);
 
 		for (Map.Entry<GameObject, Integer> treeEntry : plugin.getTreeMap().entrySet())
 		{
@@ -78,8 +78,8 @@ public class TreeCountOverlay extends Overlay
 		if (client.getLocalPlayer() != null)
 		{
 			renderOrientation(graphics);
-//			renderTranslatedTile(graphics);
-//			renderTreesSWTile(graphics);
+			renderTranslatedTile(graphics);
+			renderTreesSWTile(graphics);
 		}
 		return;
 	}
