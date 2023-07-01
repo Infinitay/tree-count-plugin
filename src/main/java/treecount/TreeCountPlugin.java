@@ -65,13 +65,13 @@ public class TreeCountPlugin extends Plugin
 	}
 
 	@Override
-	protected void startUp() throws Exception
+	protected void startUp()
 	{
 		overlayManager.add(overlay);
 	}
 
 	@Override
-	protected void shutDown() throws Exception
+	protected void shutDown()
 	{
 		overlayManager.remove(overlay);
 		treeMap.clear();
@@ -281,32 +281,7 @@ public class TreeCountPlugin extends Plugin
 		Direction[] directions = getDirections(orientation);
 		log.debug("Actor: {}, Orientation: {}, Directions: {}", actor.getName(), orientation, Arrays.toString(directions));
 		WorldPoint actorLocation = actor.getWorldLocation();
-		WorldPoint changedActorLocation = actorLocation;
-		for (Direction direction : directions)
-		{
-			if (direction == null)
-			{
-				continue;
-			}
-			// If the direction is north or south, change the y coordinate
-			switch (direction)
-			{
-				case NORTH:
-					changedActorLocation = changedActorLocation.dy(1);
-					break;
-				case EAST:
-					changedActorLocation = changedActorLocation.dx(1);
-					break;
-				case SOUTH:
-					changedActorLocation = changedActorLocation.dy(-1);
-					break;
-				case WEST:
-					changedActorLocation = changedActorLocation.dx(-1);
-					break;
-			}
-		}
 
-		final WorldPoint finalChangedActorLocation = changedActorLocation;
 		Optional<Map.Entry<GameObject, Integer>> closestTreeEntry = treeMap.entrySet().stream().filter((entry) ->
 			{
 				GameObject tree = entry.getKey();
