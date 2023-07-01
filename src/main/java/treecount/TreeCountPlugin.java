@@ -53,6 +53,8 @@ public class TreeCountPlugin extends Plugin
 	@Getter
 	private final Map<GameObject, Integer> treeMap = new HashMap<>();
 	private final Map<Player, GameObject> playerMap = new HashMap<>();
+	// This map is used to track player orientation changes for only players that are chopping trees
+	private final Map<Player, Integer> playerOrientationMap = new HashMap<>();
 
 	private int previousPlane;
 
@@ -76,6 +78,7 @@ public class TreeCountPlugin extends Plugin
 		overlayManager.remove(overlay);
 		treeMap.clear();
 		playerMap.clear();
+		playerOrientationMap.clear();
 		previousPlane = -1;
 		firstRun = true;
 	}
@@ -101,16 +104,25 @@ public class TreeCountPlugin extends Plugin
 			{
 				if (isWoodcutting(player) && !treeMap.isEmpty())
 				{
-					// Now we have to find the closest tree to the player that we are facing
-					// Orientation: N=1024, E=1536, S=0, W=512, where we would filter tile loc N = y+1, E= x+1, S=y-1, W=x-1
-					GameObject closestTree = findClosestFacingTree(player);
-					if (closestTree == null)
-					{
-						return;
-					}
-					playerMap.put(player, closestTree);
-					int choppers = treeMap.getOrDefault(closestTree, 0) + 1;
-					treeMap.put(closestTree, choppers);
+					addToTreeFocusedMaps(player);
+				}
+			}
+		}
+
+		// Let's create a PlayerOrientationChanged event for cases when the players shift's orientation while chopping
+		if (!playerOrientationMap.isEmpty())
+		{
+			for (Map.Entry<Player, Integer> playerOrientationEntry : playerOrientationMap.entrySet())
+			{
+				Player player = playerOrientationEntry.getKey();
+				int previousOrientation = playerOrientationEntry.getValue();
+				int currentOrientation = player.getOrientation();
+
+				if (currentOrientation != previousOrientation)
+				{
+					playerOrientationMap.put(player, currentOrientation);
+					final PlayerOrientationChanged playerOrientationChanged = new PlayerOrientationChanged(player, previousOrientation, currentOrientation);
+					onPlayerOrientationChanged(playerOrientationChanged);
 				}
 			}
 		}
@@ -153,6 +165,7 @@ public class TreeCountPlugin extends Plugin
 		{
 			treeMap.clear();
 			playerMap.clear();
+			playerOrientationMap.clear();
 			firstRun = true;
 		}
 	}
@@ -172,16 +185,7 @@ public class TreeCountPlugin extends Plugin
 
 		if (isWoodcutting(player))
 		{
-			// Now we have to find the closest tree to the player that we are facing
-			// Orientation: N=1024, E=1536, S=0, W=512, where we would filter tile loc N = y+1, E= x+1, S=y-1, W=x-1
-			GameObject closestTree = findClosestFacingTree(player);
-			if (closestTree == null)
-			{
-				return;
-			}
-			playerMap.put(player, closestTree);
-			int choppers = treeMap.getOrDefault(closestTree, 0) + 1;
-			treeMap.put(closestTree, choppers);
+			addToTreeFocusedMaps(player);
 		}
 	}
 
@@ -193,19 +197,11 @@ public class TreeCountPlugin extends Plugin
 		if (firstRun)
 		{
 			playerMap.remove(player);
+			playerOrientationMap.remove(player);
 			return;
 		}
 
-		GameObject tree = playerMap.get(player);
-		if (playerMap.containsKey(player))
-		{
-			playerMap.remove(player);
-			if (treeMap.containsKey(tree))
-			{
-				int choppers = treeMap.getOrDefault(tree, 1) - 1;
-				treeMap.put(tree, choppers);
-			}
-		}
+		removeFromTreeMaps(player);
 	}
 
 	@Subscribe
@@ -221,30 +217,32 @@ public class TreeCountPlugin extends Plugin
 			Player player = (Player) event.getActor();
 			if (isWoodcutting(player) && !treeMap.isEmpty())
 			{
-				// Now we have to find the closest tree to the player that we are facing
-				// Orientation: N=1024, E=1536, S=0, W=512, where we would filter tile loc N = y+1, E= x+1, S=y-1, W=x-1
-				GameObject closestTree = findClosestFacingTree(player);
-				if (closestTree == null)
-				{
-					return;
-				}
-				playerMap.put(player, closestTree);
-				int choppers = treeMap.getOrDefault(closestTree, 0) + 1;
-				treeMap.put(closestTree, choppers);
+				addToTreeFocusedMaps(player);
 			}
 			else if (player.getAnimation() == -1)
 			{
-				if (!playerMap.isEmpty() && playerMap.containsKey(player))
-				{
-					GameObject tree = playerMap.get(player);
-					playerMap.remove(player);
-					if (treeMap.containsKey(tree))
-					{
-						int choppers = treeMap.getOrDefault(tree, 1) - 1;
-						treeMap.put(tree, choppers);
-					}
-				}
+				removeFromTreeMaps(player);
 			}
+		}
+	}
+
+	@Subscribe
+	public void onPlayerOrientationChanged(final PlayerOrientationChanged event)
+	{
+		// Player orientation map should already consist of players chopping trees but check just in case
+		// Also, animation changed should? fire before game tick, therefore non-chopping players should be removed
+		// But again, just in case perform the necessary checks
+		if (firstRun)
+		{
+			return;
+		}
+
+		Player player = event.getPlayer();
+
+		removeFromTreeMaps(player); // Remove the previous tracked case
+		if (isWoodcutting(player))
+		{
+			addToTreeFocusedMaps(player);
 		}
 	}
 
@@ -272,11 +270,37 @@ public class TreeCountPlugin extends Plugin
 		}
 	}
 
+	boolean addToTreeFocusedMaps(Player player)
+	{
+		GameObject closestTree = findClosestFacingTree(player);
+		if (closestTree == null)
+		{
+			return false;
+		}
+		playerMap.put(player, closestTree);
+		playerOrientationMap.put(player, player.getOrientation());
+		int choppers = treeMap.getOrDefault(closestTree, 0) + 1;
+		treeMap.put(closestTree, choppers);
+		return true;
+	}
+
+	void removeFromTreeMaps(Player player)
+	{
+		GameObject tree = playerMap.get(player);
+		playerMap.remove(player);
+		playerOrientationMap.remove(player);
+		if (treeMap.containsKey(tree))
+		{
+			int choppers = treeMap.getOrDefault(tree, 1) - 1;
+			treeMap.put(tree, choppers);
+		}
+	}
+
 	private GameObject findClosestFacingTree(Actor actor)
 	{
 		// First we filter out all trees whose tile is not in the direction we are facing
 		// Orientation: N=1024, E=1536, S=0, W=512, where we would filter tile loc N = y+1, E= x+1, S=y-1, W=x-1
-		int orientation = actor.getCurrentOrientation();
+		int orientation = actor.getOrientation();
 		Direction[] directions = getDirections(orientation);
 		log.debug("Actor: {}, Orientation: {}, Directions: {}", actor.getName(), orientation, Arrays.toString(directions));
 		WorldPoint actorLocation = actor.getWorldLocation();
@@ -313,7 +337,7 @@ public class TreeCountPlugin extends Plugin
 			}
 		).sorted((entry1, entry2) ->
 			{
-				// Get closest tree with relation to our player's location
+				// Get the closest tree with relation to our player's location
 				GameObject tree1 = entry1.getKey();
 				GameObject tree2 = entry2.getKey();
 				WorldPoint treeLocation1 = getSWWorldPoint(tree1);
