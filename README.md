@@ -13,5 +13,4 @@ A RuneLite plugin to track the number of players chopping a tree.
 
 ## Future Plans
 
-- Track trees and players chopping trees when the plugin is started back up
 - When part 2 of the forestry event is release, add the new axe animation ids to #isWoodcutting

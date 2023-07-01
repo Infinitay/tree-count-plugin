@@ -305,7 +305,7 @@ public class TreeCountPlugin extends Plugin
 							result &= treeLocation.getY() < actorLocation.getY();
 							break;
 						case WEST: // West, filter out trees that are not west of us
-							result &= treeLocation.getX() <= actorLocation.getX();
+							result &= treeLocation.getX() < actorLocation.getX();
 							break;
 					}
 				}
