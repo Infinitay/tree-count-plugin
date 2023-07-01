@@ -1,6 +1,7 @@
 package treecount;
 
 import com.google.inject.Provides;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -14,6 +15,7 @@ import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
 import net.runelite.api.coords.Angle;
+import net.runelite.api.coords.Direction;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.GameObjectDespawned;
@@ -276,33 +278,73 @@ public class TreeCountPlugin extends Plugin
 		// First we filter out all trees whose tile is not in the direction we are facing
 		// Orientation: N=1024, E=1536, S=0, W=512, where we would filter tile loc N = y+1, E= x+1, S=y-1, W=x-1
 		int orientation = actor.getCurrentOrientation();
+		Direction[] directions = getDirections(orientation);
+		log.debug("Actor: {}, Orientation: {}, Directions: {}", actor.getName(), orientation, Arrays.toString(directions));
 		WorldPoint actorLocation = actor.getWorldLocation();
+		WorldPoint changedActorLocation = actorLocation;
+		for (Direction direction : directions)
+		{
+			if (direction == null)
+			{
+				continue;
+			}
+			// If the direction is north or south, change the y coordinate
+			switch (direction)
+			{
+				case NORTH:
+					changedActorLocation = changedActorLocation.dy(1);
+					break;
+				case EAST:
+					changedActorLocation = changedActorLocation.dx(1);
+					break;
+				case SOUTH:
+					changedActorLocation = changedActorLocation.dy(-1);
+					break;
+				case WEST:
+					changedActorLocation = changedActorLocation.dx(-1);
+					break;
+			}
+		}
+
+		final WorldPoint finalChangedActorLocation = changedActorLocation;
 		Optional<Map.Entry<GameObject, Integer>> closestTreeEntry = treeMap.entrySet().stream().filter((entry) ->
 			{
 				GameObject tree = entry.getKey();
-				WorldPoint treeLocation = tree.getWorldLocation();
-				switch (new Angle(orientation).getNearestDirection())
+				WorldPoint treeLocation = getSWWorldPoint(tree);
+				log.debug("Actor Location: {} Tree Location: {}, Distance: {}", actor.getWorldLocation(), treeLocation, getManhattanDistance(actorLocation, treeLocation));
+				boolean result = true;
+				for (Direction direction : directions)
 				{
-					case NORTH: // North, filter out trees that are not north of us
-						return treeLocation.getY() > actorLocation.getY();
-					case EAST: // East, filter out trees that are not east of us
-						return treeLocation.getX() > actorLocation.getX();
-					case SOUTH: // South, filter out trees that are not south of us
-						return treeLocation.getY() < actorLocation.getY();
-					case WEST: // West, filter out trees that are not west of us
-						return treeLocation.getX() < actorLocation.getX();
+					if (direction == null)
+					{
+						continue;
+					}
+					switch (direction)
+					{
+						case NORTH: // North, filter out trees that are not north of us
+							result &= treeLocation.getY() >= actorLocation.getY();
+							break;
+						case EAST: // East, filter out trees that are not east of us
+							result &= treeLocation.getX() >= actorLocation.getX();
+							break;
+						case SOUTH: // South, filter out trees that are not south of us
+							result &= treeLocation.getY() < actorLocation.getY();
+							break;
+						case WEST: // West, filter out trees that are not west of us
+							result &= treeLocation.getX() <= actorLocation.getX();
+							break;
+					}
 				}
-				log.debug("Orientation {} not found", orientation);
-				return false;
+				return result;
 			}
 		).sorted((entry1, entry2) ->
 			{
 				// Get closest tree with relation to our player's location
 				GameObject tree1 = entry1.getKey();
 				GameObject tree2 = entry2.getKey();
-				WorldPoint treeLocation1 = tree1.getWorldLocation();
-				WorldPoint treeLocation2 = tree2.getWorldLocation();
-				return actorLocation.distanceTo(treeLocation1) - actorLocation.distanceTo(treeLocation2);
+				WorldPoint treeLocation1 = getSWWorldPoint(tree1);
+				WorldPoint treeLocation2 = getSWWorldPoint(tree2);
+				return getManhattanDistance(actorLocation, treeLocation1) - getManhattanDistance(actorLocation, treeLocation2);
 			}
 		).findFirst();
 
@@ -314,6 +356,58 @@ public class TreeCountPlugin extends Plugin
 		{
 			log.debug("No closest tree found");
 			return null;
+		}
+	}
+
+	WorldPoint getSWWorldPoint(GameObject gameObject)
+	{
+		return WorldPoint.fromScene(client, gameObject.getSceneMinLocation().getX(), gameObject.getSceneMinLocation().getY(), gameObject.getPlane());
+	}
+
+	int getManhattanDistance(WorldPoint point1, WorldPoint point2)
+	{
+		return Math.abs(point1.getX() - point2.getX()) + Math.abs(point1.getY() - point2.getY());
+	}
+
+	Direction[] getDirections(int orientation)
+	{
+		// Get the direction the player is facing
+		Angle playerAngle = new Angle(orientation);
+		Direction primaryDirection = playerAngle.getNearestDirection();
+
+		// Check to see if the player is facing a definitive direction
+		if (playerAngle.getAngle() % 512 != 0)
+		{
+			Direction secondaryDirection;
+			if (primaryDirection == Direction.NORTH || primaryDirection == Direction.SOUTH)
+			{
+				// Secondary has to be east (1536) or west (512)
+				secondaryDirection = Math.abs(playerAngle.getAngle() - 512) < Math.abs(playerAngle.getAngle() - 1536) ? Direction.WEST : Direction.EAST;
+			}
+			else
+			{
+				// Secondary has to be north (1024) or south (0 or 2048)
+				int northCheck = Math.abs(playerAngle.getAngle() - 1024);
+				int southCheck1 = Math.abs(playerAngle.getAngle() - 0);
+				int southCheck2 = Math.abs(playerAngle.getAngle() - 2048);
+				if (northCheck < southCheck1 && northCheck < southCheck2)
+				{
+					secondaryDirection = Direction.NORTH;
+				}
+				else if (southCheck1 < southCheck2)
+				{
+					secondaryDirection = Direction.SOUTH;
+				}
+				else
+				{
+					secondaryDirection = Direction.SOUTH;
+				}
+			}
+			return new Direction[]{primaryDirection, secondaryDirection};
+		}
+		else
+		{
+			return new Direction[]{primaryDirection, null};
 		}
 	}
 }
