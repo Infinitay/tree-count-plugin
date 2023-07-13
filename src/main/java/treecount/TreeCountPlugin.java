@@ -87,6 +87,10 @@ public class TreeCountPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick gameTick)
 	{
+		if (isRegionInWoodcuttingGuild(client.getLocalPlayer().getWorldLocation().getRegionID())) {
+			return;
+		}
+
 		// Event runs third (or last) upon login
 		int currentPlane = client.getPlane();
 		if (previousPlane != currentPlane)
@@ -134,6 +138,12 @@ public class TreeCountPlugin extends Plugin
 	{
 		// Event runs first upon login
 		GameObject gameObject = event.getGameObject();
+
+		if (isRegionInWoodcuttingGuild(gameObject.getWorldLocation().getRegionID())) {
+			return;
+		}
+
+
 		Tree tree = Tree.findTree(gameObject.getId());
 
 		if (tree != null && !tree.equals(Tree.REGULAR_TREE))
@@ -146,14 +156,16 @@ public class TreeCountPlugin extends Plugin
 	@Subscribe
 	public void onGameObjectDespawned(final GameObjectDespawned event)
 	{
-		final GameObject object = event.getGameObject();
-
-		Tree tree = Tree.findTree(object.getId());
+		final GameObject gameObject = event.getGameObject();
+		if (isRegionInWoodcuttingGuild(gameObject.getWorldLocation().getRegionID())) {
+			return;
+		}
+		Tree tree = Tree.findTree(gameObject.getId());
 		if (tree != null && !tree.equals(Tree.REGULAR_TREE))
 		{
-			if (treeMap.containsKey(object))
+			if (treeMap.containsKey(gameObject))
 			{
-				treeMap.remove(object);
+				treeMap.remove(gameObject);
 			}
 		}
 
@@ -178,6 +190,10 @@ public class TreeCountPlugin extends Plugin
 		Player player = event.getPlayer();
 		log.debug("Player {} spawned at {}", player.getName(), player.getWorldLocation());
 
+		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID())) {
+			return;
+		}
+
 		if (firstRun)
 		{
 			playerMap.put(player, null);
@@ -194,6 +210,10 @@ public class TreeCountPlugin extends Plugin
 	public void onPlayerDespawned(final PlayerDespawned event)
 	{
 		Player player = event.getPlayer();
+
+		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID())) {
+			return;
+		}
 
 		if (firstRun)
 		{
@@ -216,6 +236,11 @@ public class TreeCountPlugin extends Plugin
 		if (event.getActor() instanceof Player)
 		{
 			Player player = (Player) event.getActor();
+
+			if (client.getGameState() != GameState.LOGGING_IN && isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID())) {
+				return;
+			}
+
 			if (isWoodcutting(player) && !treeMap.isEmpty())
 			{
 				addToTreeFocusedMaps(player);
@@ -239,6 +264,10 @@ public class TreeCountPlugin extends Plugin
 		}
 
 		Player player = event.getPlayer();
+
+		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID())) {
+			return;
+		}
 
 		removeFromTreeMaps(player); // Remove the previous tracked case
 		if (isWoodcutting(player))
@@ -408,5 +437,9 @@ public class TreeCountPlugin extends Plugin
 		{
 			return new Direction[]{primaryDirection, null};
 		}
+	}
+
+	boolean isRegionInWoodcuttingGuild(int regionID) {
+		return regionID == 6198 || regionID == 6454;
 	}
 }

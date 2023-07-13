@@ -38,6 +38,10 @@ public class TreeCountOverlay extends Overlay
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
+		if (plugin.isRegionInWoodcuttingGuild(client.getLocalPlayer().getWorldLocation().getRegionID())) {
+			return null;
+		}
+
 		// renderDebugOverlay(graphics);
 
 		for (Map.Entry<GameObject, Integer> treeEntry : plugin.getTreeMap().entrySet())
