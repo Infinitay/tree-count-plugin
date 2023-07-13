@@ -87,7 +87,8 @@ public class TreeCountPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick gameTick)
 	{
-		if (isRegionInWoodcuttingGuild(client.getLocalPlayer().getWorldLocation().getRegionID())) {
+		if (isRegionInWoodcuttingGuild(client.getLocalPlayer().getWorldLocation().getRegionID()))
+		{
 			return;
 		}
 
@@ -104,7 +105,12 @@ public class TreeCountPlugin extends Plugin
 		{
 			firstRun = false;
 			// Any missing players just in case, although it's not really required. Doesn't hurt since one time operation
-			client.getPlayers().forEach(player -> playerMap.putIfAbsent(player, null));
+			client.getPlayers().forEach(player -> {
+				if (!player.equals(client.getLocalPlayer()))
+				{
+					playerMap.putIfAbsent(player, null);
+				}
+			});
 			for (Player player : playerMap.keySet())
 			{
 				if (isWoodcutting(player) && !treeMap.isEmpty())
@@ -139,7 +145,8 @@ public class TreeCountPlugin extends Plugin
 		// Event runs first upon login
 		GameObject gameObject = event.getGameObject();
 
-		if (isRegionInWoodcuttingGuild(gameObject.getWorldLocation().getRegionID())) {
+		if (isRegionInWoodcuttingGuild(gameObject.getWorldLocation().getRegionID()))
+		{
 			return;
 		}
 
@@ -157,7 +164,8 @@ public class TreeCountPlugin extends Plugin
 	public void onGameObjectDespawned(final GameObjectDespawned event)
 	{
 		final GameObject gameObject = event.getGameObject();
-		if (isRegionInWoodcuttingGuild(gameObject.getWorldLocation().getRegionID())) {
+		if (isRegionInWoodcuttingGuild(gameObject.getWorldLocation().getRegionID()))
+		{
 			return;
 		}
 		Tree tree = Tree.findTree(gameObject.getId());
@@ -190,7 +198,13 @@ public class TreeCountPlugin extends Plugin
 		Player player = event.getPlayer();
 		log.debug("Player {} spawned at {}", player.getName(), player.getWorldLocation());
 
-		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID())) {
+		if (player.equals(client.getLocalPlayer()))
+		{
+			return;
+		}
+
+		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()))
+		{
 			return;
 		}
 
@@ -211,7 +225,13 @@ public class TreeCountPlugin extends Plugin
 	{
 		Player player = event.getPlayer();
 
-		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID())) {
+		if (player.equals(client.getLocalPlayer()))
+		{
+			return;
+		}
+
+		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()))
+		{
 			return;
 		}
 
@@ -237,7 +257,13 @@ public class TreeCountPlugin extends Plugin
 		{
 			Player player = (Player) event.getActor();
 
-			if (client.getGameState() != GameState.LOGGING_IN && isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID())) {
+			if (player.equals(client.getLocalPlayer()))
+			{
+				return;
+			}
+
+			if (client.getGameState() == GameState.LOGGED_IN && isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()))
+			{
 				return;
 			}
 
@@ -265,7 +291,13 @@ public class TreeCountPlugin extends Plugin
 
 		Player player = event.getPlayer();
 
-		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID())) {
+		if (player.equals(client.getLocalPlayer()))
+		{
+			return;
+		}
+
+		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()))
+		{
 			return;
 		}
 
@@ -439,7 +471,8 @@ public class TreeCountPlugin extends Plugin
 		}
 	}
 
-	boolean isRegionInWoodcuttingGuild(int regionID) {
+	boolean isRegionInWoodcuttingGuild(int regionID)
+	{
 		return regionID == 6198 || regionID == 6454;
 	}
 }
