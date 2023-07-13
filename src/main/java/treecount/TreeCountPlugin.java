@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.inject.Inject;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -54,7 +55,7 @@ public class TreeCountPlugin extends Plugin
 	private final Map<GameObject, Integer> treeMap = new HashMap<>();
 	private final Map<Player, GameObject> playerMap = new HashMap<>();
 	// This map is used to track player orientation changes for only players that are chopping trees
-	private final Map<Player, Integer> playerOrientationMap = new HashMap<>();
+	private final Map<Player, Integer> playerOrientationMap = new ConcurrentHashMap<>();
 
 	private int previousPlane;
 
