@@ -135,7 +135,7 @@ public class TreeCountPlugin extends Plugin
 		GameObject gameObject = event.getGameObject();
 		Tree tree = Tree.findTree(gameObject.getId());
 
-		if (tree != null)
+		if (tree != null && !tree.equals(Tree.REGULAR_TREE))
 		{
 			log.debug("Tree {} spawned at {}", tree, gameObject.getLocalLocation());
 			treeMap.put(gameObject, 0);
@@ -148,7 +148,7 @@ public class TreeCountPlugin extends Plugin
 		final GameObject object = event.getGameObject();
 
 		Tree tree = Tree.findTree(object.getId());
-		if (tree != null)
+		if (tree != null && !tree.equals(Tree.REGULAR_TREE))
 		{
 			if (treeMap.containsKey(object))
 			{
