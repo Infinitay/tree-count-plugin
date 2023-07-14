@@ -47,6 +47,11 @@ public class TreeCountOverlay extends Overlay
 
 		for (Map.Entry<GameObject, Integer> treeEntry : plugin.getTreeMap().entrySet())
 		{
+			if (Tree.findForestryTree(treeEntry.getKey().getId()) == null)
+			{
+				continue;
+			}
+
 			int choppers = treeEntry.getValue();
 			if (choppers > 0)
 			{

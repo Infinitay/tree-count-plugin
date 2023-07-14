@@ -150,10 +150,9 @@ public class TreeCountPlugin extends Plugin
 			return;
 		}
 
-
 		Tree tree = Tree.findTree(gameObject.getId());
 
-		if (tree != null && !tree.equals(Tree.REGULAR_TREE))
+		if (tree != null)
 		{
 			log.debug("Tree {} spawned at {}", tree, gameObject.getLocalLocation());
 			treeMap.put(gameObject, 0);
@@ -257,12 +256,14 @@ public class TreeCountPlugin extends Plugin
 		{
 			Player player = (Player) event.getActor();
 
-			if (player.equals(client.getLocalPlayer()))
+			if (player != null && player.equals(client.getLocalPlayer()))
 			{
 				return;
 			}
 
-			if (client.getGameState() == GameState.LOGGED_IN && isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()))
+			// Check combat level to avoid NPE. Not sure why this happens, maybe the Player isn't really a player?
+			// The player isn't null, but all the fields are
+			if (player.getCombatLevel() != 0 && isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()))
 			{
 				return;
 			}
