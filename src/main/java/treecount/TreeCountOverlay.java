@@ -45,9 +45,12 @@ public class TreeCountOverlay extends Overlay
 
 		// renderDebugOverlay(graphics);
 
-		for (Map.Entry<GameObject, Integer> treeEntry : plugin.getTreeMap().entrySet())
+		for (Map.Entry<TreeGameObject, Integer> treeEntry : plugin.getTreeMap().entrySet())
 		{
-			if (Tree.findForestryTree(treeEntry.getKey().getId()) == null)
+			GameObject treeGameObject = treeEntry.getKey().getTreeGameObject();
+			Tree tree = treeEntry.getKey().getTree();
+
+			if (!tree.isProvidesForestryBoost())
 			{
 				continue;
 			}
@@ -55,7 +58,7 @@ public class TreeCountOverlay extends Overlay
 			int choppers = treeEntry.getValue();
 			if (choppers > 0)
 			{
-				Point point = Perspective.getCanvasTextLocation(client, graphics, treeEntry.getKey().getLocalLocation(), String.valueOf(choppers), 0);
+				Point point = Perspective.getCanvasTextLocation(client, graphics, treeGameObject.getLocalLocation(), String.valueOf(choppers), 0);
 				if (point == null)
 				{
 					return null;
@@ -168,19 +171,20 @@ public class TreeCountOverlay extends Overlay
 
 	private void renderTreesSWTile(Graphics2D graphics)
 	{
-		for (Map.Entry<GameObject, Integer> treeEntry : plugin.getTreeMap().entrySet())
+		for (Map.Entry<TreeGameObject, Integer> treeEntry : plugin.getTreeMap().entrySet())
 		{
-			LocalPoint swLocalPoint = LocalPoint.fromWorld(client, plugin.getSWWorldPoint(treeEntry.getKey()));
+			GameObject treeGameObject = treeEntry.getKey().getTreeGameObject();
+			LocalPoint swLocalPoint = LocalPoint.fromWorld(client, plugin.getSWWorldPoint(treeGameObject));
 			if (swLocalPoint != null)
 			{
-				int distance = plugin.getManhattanDistance(plugin.getSWWorldPoint(treeEntry.getKey()), client.getLocalPlayer().getWorldLocation());
+				int distance = plugin.getManhattanDistance(plugin.getSWWorldPoint(treeGameObject), client.getLocalPlayer().getWorldLocation());
 				Polygon swTilePolygon = Perspective.getCanvasTilePoly(client, swLocalPoint);
 				if (swTilePolygon != null)
 				{
 					OverlayUtil.renderPolygon(graphics, swTilePolygon, Color.WHITE);
-					if (treeEntry.getKey().getCanvasLocation() != null)
+					if (treeGameObject.getCanvasLocation() != null)
 					{
-						OverlayUtil.renderTextLocation(graphics, treeEntry.getKey().getCanvasLocation(), String.valueOf(distance), Color.WHITE);
+						OverlayUtil.renderTextLocation(graphics, treeGameObject.getCanvasLocation(), String.valueOf(distance), Color.WHITE);
 					}
 				}
 			}

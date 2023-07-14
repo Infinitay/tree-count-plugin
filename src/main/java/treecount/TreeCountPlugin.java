@@ -52,8 +52,8 @@ public class TreeCountPlugin extends Plugin
 	private TreeCountOverlay overlay;
 
 	@Getter
-	private final Map<GameObject, Integer> treeMap = new HashMap<>();
-	private final Map<Player, GameObject> playerMap = new HashMap<>();
+	private final Map<TreeGameObject, Integer> treeMap = new HashMap<>();
+	private final Map<Player, TreeGameObject> playerMap = new HashMap<>();
 	// This map is used to track player orientation changes for only players that are chopping trees
 	private final Map<Player, Integer> playerOrientationMap = new ConcurrentHashMap<>();
 
@@ -155,7 +155,7 @@ public class TreeCountPlugin extends Plugin
 		if (tree != null)
 		{
 			log.debug("Tree {} spawned at {}", tree, gameObject.getLocalLocation());
-			treeMap.put(gameObject, 0);
+			treeMap.put(new TreeGameObject(gameObject, tree), 0);
 		}
 	}
 
@@ -335,7 +335,7 @@ public class TreeCountPlugin extends Plugin
 
 	boolean addToTreeFocusedMaps(Player player)
 	{
-		GameObject closestTree = findClosestFacingTree(player);
+		TreeGameObject closestTree = findClosestFacingTree(player);
 		if (closestTree == null)
 		{
 			return false;
@@ -349,7 +349,7 @@ public class TreeCountPlugin extends Plugin
 
 	void removeFromTreeMaps(Player player)
 	{
-		GameObject tree = playerMap.get(player);
+		TreeGameObject tree = playerMap.get(player);
 		playerMap.remove(player);
 		playerOrientationMap.remove(player);
 		if (treeMap.containsKey(tree))
@@ -359,7 +359,7 @@ public class TreeCountPlugin extends Plugin
 		}
 	}
 
-	private GameObject findClosestFacingTree(Actor actor)
+	private TreeGameObject findClosestFacingTree(Actor actor)
 	{
 		// First we filter out all trees whose tile is not in the direction we are facing
 		// Orientation: N=1024, E=1536, S=0, W=512, where we would filter tile loc N = y+1, E= x+1, S=y-1, W=x-1
@@ -368,9 +368,9 @@ public class TreeCountPlugin extends Plugin
 		log.debug("Actor: {}, Orientation: {}, Directions: {}", actor.getName(), orientation, Arrays.toString(directions));
 		WorldPoint actorLocation = actor.getWorldLocation();
 
-		Optional<Map.Entry<GameObject, Integer>> closestTreeEntry = treeMap.entrySet().stream().filter((entry) ->
+		Optional<Map.Entry<TreeGameObject, Integer>> closestTreeEntry = treeMap.entrySet().stream().filter((entry) ->
 			{
-				GameObject tree = entry.getKey();
+				GameObject tree = entry.getKey().getTreeGameObject();
 				WorldPoint treeLocation = getSWWorldPoint(tree);
 				log.debug("Actor Location: {} Tree Location: {}, Distance: {}", actor.getWorldLocation(), treeLocation, getManhattanDistance(actorLocation, treeLocation));
 				boolean result = true;
@@ -401,8 +401,8 @@ public class TreeCountPlugin extends Plugin
 		).sorted((entry1, entry2) ->
 			{
 				// Get the closest tree with relation to our player's location
-				GameObject tree1 = entry1.getKey();
-				GameObject tree2 = entry2.getKey();
+				GameObject tree1 = entry1.getKey().getTreeGameObject();
+				GameObject tree2 = entry2.getKey().getTreeGameObject();
 				WorldPoint treeLocation1 = getSWWorldPoint(tree1);
 				WorldPoint treeLocation2 = getSWWorldPoint(tree2);
 				return getManhattanDistance(actorLocation, treeLocation1) - getManhattanDistance(actorLocation, treeLocation2);
