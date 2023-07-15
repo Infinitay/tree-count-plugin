@@ -5,19 +5,22 @@ import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
 import java.util.Map;
+import java.util.Random;
+import java.util.WeakHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import javax.inject.Inject;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.api.Perspective;
 import net.runelite.api.Point;
-import net.runelite.api.coords.Angle;
-import net.runelite.api.coords.Direction;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayUtil;
 
+@Slf4j
 public class TreeCountOverlay extends Overlay
 {
 	private final TreeCountPlugin plugin;
@@ -34,7 +37,6 @@ public class TreeCountOverlay extends Overlay
 		setPosition(OverlayPosition.DYNAMIC);
 	}
 
-
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
@@ -43,147 +45,95 @@ public class TreeCountOverlay extends Overlay
 			return null;
 		}
 
-		// renderDebugOverlay(graphics);
+		renderDebugOverlay(graphics);
 
-		for (Map.Entry<GameObject, Integer> treeEntry : plugin.getTreeMap().entrySet())
+		plugin.getTreeMap().forEach((gameObject, choppers) ->
 		{
-			if (Tree.findForestryTree(treeEntry.getKey().getId()) == null)
+			if (choppers <= 0 || Tree.findForestryTree(gameObject.getId()) == null)
 			{
-				continue;
+				return;
 			}
 
-			int choppers = treeEntry.getValue();
-			if (choppers > 0)
+			String text = String.valueOf(choppers);
+			Point point = Perspective.getCanvasTextLocation(client, graphics, gameObject.getLocalLocation(), text, 0);
+			if (point == null)
 			{
-				Point point = Perspective.getCanvasTextLocation(client, graphics, treeEntry.getKey().getLocalLocation(), String.valueOf(choppers), 0);
-				if (point == null)
-				{
-					return null;
-				}
-				Color color;
-				if (choppers >= 10)
-				{
-					color = Color.GREEN;
-				}
-				else if (choppers >= 7)
-				{
-					color = Color.YELLOW;
-				}
-				else if (choppers >= 4)
-				{
-					color = Color.ORANGE;
-				}
-				else
-				{
-					color = Color.RED;
-				}
-				OverlayUtil.renderTextLocation(graphics, point, String.valueOf(choppers), color);
+				return;
 			}
-		}
-		return null;
-	}
-
-	private void renderDebugOverlay(Graphics2D graphics)
-	{
-		if (client.getLocalPlayer() != null)
-		{
-			renderOrientation(graphics);
-			renderTranslatedTile(graphics);
-			renderTreesSWTile(graphics);
-		}
-		return;
-	}
-
-	private void renderOrientation(Graphics2D graphics)
-	{
-		// Get the direction the player is facing
-		Angle playerAngle = new Angle(client.getLocalPlayer().getOrientation());
-		Direction direction = playerAngle.getNearestDirection();
-		String text = String.valueOf(playerAngle.getAngle()) + " (" + direction.toString() + ")";
-		Direction secondaryDirection = null;
-		if (playerAngle.getAngle() % 512 != 0)
-		{
-			if (direction == Direction.NORTH || direction == Direction.SOUTH)
+			Color color;
+			if (choppers >= 10)
 			{
-				// Secondary has to be east (1536) or west (512)
-				secondaryDirection = Math.abs(playerAngle.getAngle() - 512) < Math.abs(playerAngle.getAngle() - 1536) ? Direction.WEST : Direction.EAST;
+				color = Color.GREEN;
+			}
+			else if (choppers >= 7)
+			{
+				color = Color.YELLOW;
+			}
+			else if (choppers >= 4)
+			{
+				color = Color.ORANGE;
 			}
 			else
 			{
-				int northCheck = Math.abs(playerAngle.getAngle() - 1024);
-				int southCheck1 = Math.abs(playerAngle.getAngle() - 0);
-				int southCheck2 = Math.abs(playerAngle.getAngle() - 2048);
-				if (northCheck < southCheck1 && northCheck < southCheck2)
-				{
-					secondaryDirection = Direction.NORTH;
-				}
-				else if (southCheck1 < southCheck2)
-				{
-					secondaryDirection = Direction.SOUTH;
-				}
-				else
-				{
-					secondaryDirection = Direction.SOUTH;
-				}
+				color = Color.RED;
 			}
-			OverlayUtil.renderActorOverlay(graphics, client.getLocalPlayer(), text + " | " + secondaryDirection, Color.GREEN);
-		}
-		else
+			OverlayUtil.renderTextLocation(graphics, point, text, color);
+		});
+
+		return null;
+	}
+
+	private static final Random random = ThreadLocalRandom.current();
+
+	private static final Map<GameObject, Color> colorMap = new WeakHashMap<>();
+
+	private void renderDebugOverlay(Graphics2D graphics)
+	{
+		if (config.renderFacingTree())
 		{
-			OverlayUtil.renderActorOverlay(graphics, client.getLocalPlayer(), text, Color.GREEN);
+			renderFacingTree(graphics);
+		}
+
+		if (config.renderTreeTiles())
+		{
+			renderTreeTiles(graphics);
+		}
+
+	}
+
+	private void renderFacingTree(Graphics2D graphics)
+	{
+		if (client.getLocalPlayer() != null)
+		{
+			GameObject tree = plugin.findClosestFacingTree(client.getLocalPlayer());
+			if (tree != null)
+			{
+				OverlayUtil.renderTileOverlay(graphics, tree, "", Color.GREEN);
+			}
 		}
 	}
 
-	private void renderTranslatedTile(Graphics2D graphics)
+	private void renderTreeTiles(Graphics2D graphics)
 	{
-
-		Direction[] directions = plugin.getDirections(client.getLocalPlayer().getCurrentOrientation());
-		Polygon actorLocation = client.getLocalPlayer().getCanvasTilePoly();
-		Polygon changedActorLocation = actorLocation;
-		for (Direction _direction : directions)
-		{
-			if (_direction == null)
+		plugin.getTreeTileMap().forEach((tree, tiles) ->
 			{
-				continue;
-			}
-			// If the direction is north or south, change the y coordinate
-			switch (_direction)
-			{
-				case NORTH:
-					changedActorLocation.translate(0 * actorLocation.getBounds().width, -1 * actorLocation.getBounds().height);
-					break;
-				case EAST:
-					changedActorLocation.translate(1 * actorLocation.getBounds().width, 0 * actorLocation.getBounds().height);
-					break;
-				case SOUTH:
-					changedActorLocation.translate(0 * actorLocation.getBounds().width, 1 * actorLocation.getBounds().height);
-					break;
-				case WEST:
-					changedActorLocation.translate(-1 * actorLocation.getBounds().width, 0 * actorLocation.getBounds().height);
-					break;
-			}
-		}
-		OverlayUtil.renderPolygon(graphics, changedActorLocation, Color.RED);
-	}
-
-	private void renderTreesSWTile(Graphics2D graphics)
-	{
-		for (Map.Entry<GameObject, Integer> treeEntry : plugin.getTreeMap().entrySet())
-		{
-			LocalPoint swLocalPoint = LocalPoint.fromWorld(client, plugin.getSWWorldPoint(treeEntry.getKey()));
-			if (swLocalPoint != null)
-			{
-				int distance = plugin.getManhattanDistance(plugin.getSWWorldPoint(treeEntry.getKey()), client.getLocalPlayer().getWorldLocation());
-				Polygon swTilePolygon = Perspective.getCanvasTilePoly(client, swLocalPoint);
-				if (swTilePolygon != null)
-				{
-					OverlayUtil.renderPolygon(graphics, swTilePolygon, Color.WHITE);
-					if (treeEntry.getKey().getCanvasLocation() != null)
+				final Color color = colorMap.computeIfAbsent(tree, (unused) -> Color.getHSBColor(random.nextFloat(), 1f, 1f));
+				tiles.forEach(worldPoint ->
 					{
-						OverlayUtil.renderTextLocation(graphics, treeEntry.getKey().getCanvasLocation(), String.valueOf(distance), Color.WHITE);
+						LocalPoint localPoint = LocalPoint.fromWorld(client, worldPoint);
+						if (localPoint == null)
+						{
+							return;
+						}
+						Polygon poly = Perspective.getCanvasTilePoly(client, localPoint);
+						if (poly == null)
+						{
+							return;
+						}
+						OverlayUtil.renderPolygon(graphics, poly, color);
 					}
-				}
+				);
 			}
-		}
+		);
 	}
 }

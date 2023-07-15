@@ -1,11 +1,14 @@
 package treecount;
 
 import com.google.inject.Provides;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import javax.inject.Inject;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +18,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
+import net.runelite.api.Point;
 import net.runelite.api.coords.Angle;
 import net.runelite.api.coords.Direction;
 import net.runelite.api.coords.WorldPoint;
@@ -54,6 +58,9 @@ public class TreeCountPlugin extends Plugin
 	@Getter
 	private final Map<GameObject, Integer> treeMap = new HashMap<>();
 	private final Map<Player, GameObject> playerMap = new HashMap<>();
+	@Getter
+	private final Map<GameObject, List<WorldPoint>> treeTileMap = new HashMap<>();
+	private final Map<WorldPoint, GameObject> tileTreeMap = new HashMap<>();
 	// This map is used to track player orientation changes for only players that are chopping trees
 	private final Map<Player, Integer> playerOrientationMap = new ConcurrentHashMap<>();
 
@@ -78,6 +85,8 @@ public class TreeCountPlugin extends Plugin
 	{
 		overlayManager.remove(overlay);
 		treeMap.clear();
+		treeTileMap.clear();
+		tileTreeMap.clear();
 		playerMap.clear();
 		playerOrientationMap.clear();
 		previousPlane = -1;
@@ -160,7 +169,32 @@ public class TreeCountPlugin extends Plugin
 		{
 			log.debug("Tree {} spawned at {}", tree, gameObject.getLocalLocation());
 			treeMap.put(gameObject, 0);
+			List<WorldPoint> points = getPoints(gameObject);
+			treeTileMap.put(gameObject, points);
+			points.forEach(point -> tileTreeMap.put(point, gameObject));
 		}
+	}
+
+	private List<WorldPoint> getPoints(GameObject gameObject)
+	{
+		WorldPoint minPoint = getSWWorldPoint(gameObject);
+		WorldPoint maxPoint = getNEWorldPoint(gameObject);
+
+		if (minPoint.equals(maxPoint))
+		{
+			return Collections.singletonList(minPoint);
+		}
+
+		final int plane = minPoint.getPlane();
+		final List<WorldPoint> list = new ArrayList<>();
+		for (int x = minPoint.getX(); x <= maxPoint.getX(); x++)
+		{
+			for (int y = minPoint.getY(); y <= maxPoint.getY(); y++)
+			{
+				list.add(new WorldPoint(x, y, plane));
+			}
+		}
+		return list;
 	}
 
 	@Subscribe
@@ -174,12 +208,13 @@ public class TreeCountPlugin extends Plugin
 		Tree tree = Tree.findTree(gameObject.getId());
 		if (tree != null && !tree.equals(Tree.REGULAR_TREE))
 		{
-			if (treeMap.containsKey(gameObject))
+			treeMap.remove(gameObject);
+			List<WorldPoint> points = treeTileMap.remove(gameObject);
+			if (points != null)
 			{
-				treeMap.remove(gameObject);
+				points.forEach(tileTreeMap::remove);
 			}
 		}
-
 	}
 
 	@Subscribe
@@ -188,6 +223,8 @@ public class TreeCountPlugin extends Plugin
 		if (event.getGameState() == GameState.LOADING)
 		{
 			treeMap.clear();
+			treeTileMap.clear();
+			tileTreeMap.clear();
 			playerMap.clear();
 			playerOrientationMap.clear();
 			firstRun = true;
@@ -260,7 +297,7 @@ public class TreeCountPlugin extends Plugin
 		{
 			Player player = (Player) event.getActor();
 
-			if (player != null && player.equals(client.getLocalPlayer()))
+			if (Objects.equals(player, client.getLocalPlayer()))
 			{
 				return;
 			}
@@ -276,7 +313,7 @@ public class TreeCountPlugin extends Plugin
 			{
 				addToTreeFocusedMaps(player);
 			}
-			else if (player.getAnimation() == -1)
+			else if (player.getAnimation() == AnimationID.IDLE)
 			{
 				removeFromTreeMaps(player);
 			}
@@ -340,141 +377,67 @@ public class TreeCountPlugin extends Plugin
 		}
 	}
 
-	boolean addToTreeFocusedMaps(Player player)
+	void addToTreeFocusedMaps(Player player)
 	{
 		GameObject closestTree = findClosestFacingTree(player);
 		if (closestTree == null)
 		{
-			return false;
+			return;
 		}
 		playerMap.put(player, closestTree);
-		int choppers = treeMap.getOrDefault(closestTree, 0) + 1;
-		treeMap.put(closestTree, choppers);
-		return true;
+		treeMap.merge(closestTree, 1, Integer::sum);
 	}
 
 	void removeFromTreeMaps(Player player)
 	{
 		GameObject tree = playerMap.get(player);
 		playerMap.remove(player);
-		if (treeMap.containsKey(tree))
-		{
-			int choppers = treeMap.getOrDefault(tree, 1) - 1;
-			treeMap.put(tree, choppers);
-		}
+		treeMap.computeIfPresent(tree, (unused, value) -> Math.max(0, value - 1));
 	}
 
-	private GameObject findClosestFacingTree(Actor actor)
+	GameObject findClosestFacingTree(Actor actor)
 	{
-		// First we filter out all trees whose tile is not in the direction we are facing
-		// Orientation: N=1024, E=1536, S=0, W=512, where we would filter tile loc N = y+1, E= x+1, S=y-1, W=x-1
-		int orientation = actor.getOrientation();
-		Direction[] directions = getDirections(orientation);
-		log.debug("Actor: {}, Orientation: {}, Directions: {}", actor.getName(), orientation, Arrays.toString(directions));
 		WorldPoint actorLocation = actor.getWorldLocation();
-
-		Optional<Map.Entry<GameObject, Integer>> closestTreeEntry = treeMap.entrySet().stream().filter((entry) ->
-			{
-				GameObject tree = entry.getKey();
-				WorldPoint treeLocation = getSWWorldPoint(tree);
-				log.debug("Actor Location: {} Tree Location: {}, Distance: {}", actor.getWorldLocation(), treeLocation, getManhattanDistance(actorLocation, treeLocation));
-				boolean result = true;
-				for (Direction direction : directions)
-				{
-					if (direction == null)
-					{
-						continue;
-					}
-					switch (direction)
-					{
-						case NORTH: // North, filter out trees that are not north of us
-							result &= treeLocation.getY() >= actorLocation.getY();
-							break;
-						case EAST: // East, filter out trees that are not east of us
-							result &= treeLocation.getX() >= actorLocation.getX();
-							break;
-						case SOUTH: // South, filter out trees that are not south of us
-							result &= treeLocation.getY() < actorLocation.getY();
-							break;
-						case WEST: // West, filter out trees that are not west of us
-							result &= treeLocation.getX() < actorLocation.getX();
-							break;
-					}
-				}
-				return result;
-			}
-		).sorted((entry1, entry2) ->
-			{
-				// Get the closest tree with relation to our player's location
-				GameObject tree1 = entry1.getKey();
-				GameObject tree2 = entry2.getKey();
-				WorldPoint treeLocation1 = getSWWorldPoint(tree1);
-				WorldPoint treeLocation2 = getSWWorldPoint(tree2);
-				return getManhattanDistance(actorLocation, treeLocation1) - getManhattanDistance(actorLocation, treeLocation2);
-			}
-		).findFirst();
-
-		if (closestTreeEntry.isPresent())
+		Direction direction = new Angle(actor.getOrientation()).getNearestDirection();
+		WorldPoint facingPoint = neighborPoint(actorLocation, direction);
+		if (actor != client.getLocalPlayer())
 		{
-			return closestTreeEntry.get().getKey();
+			log.debug("Actor: {}, Direction: {}", actor.getName(), direction);
 		}
-		else
+		return tileTreeMap.get(facingPoint);
+	}
+
+	private WorldPoint neighborPoint(WorldPoint point, Direction direction)
+	{
+		switch (direction)
 		{
-			log.debug("No closest tree found");
-			return null;
+			case NORTH:
+				return point.dy(1);
+			case SOUTH:
+				return point.dy(-1);
+			case EAST:
+				return point.dx(1);
+			case WEST:
+				return point.dx(-1);
+			default:
+				throw new IllegalStateException();
 		}
 	}
 
-	WorldPoint getSWWorldPoint(GameObject gameObject)
+	private WorldPoint getSWWorldPoint(GameObject gameObject)
 	{
-		return WorldPoint.fromScene(client, gameObject.getSceneMinLocation().getX(), gameObject.getSceneMinLocation().getY(), gameObject.getPlane());
+		return getWorldPoint(gameObject, GameObject::getSceneMinLocation);
 	}
 
-	int getManhattanDistance(WorldPoint point1, WorldPoint point2)
+	private WorldPoint getNEWorldPoint(GameObject gameObject)
 	{
-		return Math.abs(point1.getX() - point2.getX()) + Math.abs(point1.getY() - point2.getY());
+		return getWorldPoint(gameObject, GameObject::getSceneMaxLocation);
 	}
 
-	Direction[] getDirections(int orientation)
+	private WorldPoint getWorldPoint(GameObject gameObject, Function<GameObject, Point> pointFunction)
 	{
-		// Get the direction the player is facing
-		Angle playerAngle = new Angle(orientation);
-		Direction primaryDirection = playerAngle.getNearestDirection();
-
-		// Check to see if the player is facing a definitive direction
-		if (playerAngle.getAngle() % 512 != 0)
-		{
-			Direction secondaryDirection;
-			if (primaryDirection == Direction.NORTH || primaryDirection == Direction.SOUTH)
-			{
-				// Secondary has to be east (1536) or west (512)
-				secondaryDirection = Math.abs(playerAngle.getAngle() - 512) < Math.abs(playerAngle.getAngle() - 1536) ? Direction.WEST : Direction.EAST;
-			}
-			else
-			{
-				// Secondary has to be north (1024) or south (0 or 2048)
-				int northCheck = Math.abs(playerAngle.getAngle() - 1024);
-				int southCheck1 = Math.abs(playerAngle.getAngle() - 0);
-				int southCheck2 = Math.abs(playerAngle.getAngle() - 2048);
-				if (northCheck < southCheck1 && northCheck < southCheck2)
-				{
-					secondaryDirection = Direction.NORTH;
-				}
-				else if (southCheck1 < southCheck2)
-				{
-					secondaryDirection = Direction.SOUTH;
-				}
-				else
-				{
-					secondaryDirection = Direction.SOUTH;
-				}
-			}
-			return new Direction[]{primaryDirection, secondaryDirection};
-		}
-		else
-		{
-			return new Direction[]{primaryDirection, null};
-		}
+		Point point = pointFunction.apply(gameObject);
+		return WorldPoint.fromScene(client, point.getX(), point.getY(), gameObject.getPlane());
 	}
 
 	boolean isRegionInWoodcuttingGuild(int regionID)
