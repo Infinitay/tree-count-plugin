@@ -103,12 +103,12 @@ public class TreeCountPlugin extends Plugin
 
 		if (firstRun)
 		{
-			firstRun = false;
 			// Any missing players just in case, although it's not really required. Doesn't hurt since one time operation
 			client.getPlayers().forEach(player -> {
 				if (!player.equals(client.getLocalPlayer()))
 				{
 					playerMap.putIfAbsent(player, null);
+					playerOrientationMap.put(player, -1);
 				}
 			});
 			for (Player player : playerMap.keySet())
@@ -131,11 +131,15 @@ public class TreeCountPlugin extends Plugin
 
 				if (currentOrientation != previousOrientation)
 				{
-					playerOrientationMap.put(player, currentOrientation);
 					final PlayerOrientationChanged playerOrientationChanged = new PlayerOrientationChanged(player, previousOrientation, currentOrientation);
 					onPlayerOrientationChanged(playerOrientationChanged);
 				}
 			}
+		}
+
+		if (firstRun)
+		{
+			firstRun = false;
 		}
 	}
 
@@ -292,6 +296,8 @@ public class TreeCountPlugin extends Plugin
 
 		Player player = event.getPlayer();
 
+		log.debug("Player {} orientation changed from {} to {}", player.getName(), event.getPreviousOrientation(), event.getCurrentOrientation());
+
 		if (player.equals(client.getLocalPlayer()))
 		{
 			return;
@@ -302,6 +308,7 @@ public class TreeCountPlugin extends Plugin
 			return;
 		}
 
+		playerOrientationMap.put(player, event.getCurrentOrientation());
 		removeFromTreeMaps(player); // Remove the previous tracked case
 		if (isWoodcutting(player))
 		{
@@ -341,7 +348,6 @@ public class TreeCountPlugin extends Plugin
 			return false;
 		}
 		playerMap.put(player, closestTree);
-		playerOrientationMap.put(player, player.getOrientation());
 		int choppers = treeMap.getOrDefault(closestTree, 0) + 1;
 		treeMap.put(closestTree, choppers);
 		return true;
@@ -351,7 +357,6 @@ public class TreeCountPlugin extends Plugin
 	{
 		GameObject tree = playerMap.get(player);
 		playerMap.remove(player);
-		playerOrientationMap.remove(player);
 		if (treeMap.containsKey(tree))
 		{
 			int choppers = treeMap.getOrDefault(tree, 1) - 1;
