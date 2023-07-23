@@ -1,10 +1,13 @@
 package treecount;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
+import java.awt.Stroke;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.WeakHashMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -13,16 +16,17 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.api.Perspective;
-import net.runelite.api.Point;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayUtil;
+import net.runelite.client.util.ColorUtil;
 
 @Slf4j
 public class TreeCountOverlay extends Overlay
 {
+	public static final Color BLANK_COLOR = new Color(0, true);
 	private final TreeCountPlugin plugin;
 	private final TreeCountConfig config;
 	private final Client client;
@@ -49,38 +53,55 @@ public class TreeCountOverlay extends Overlay
 
 		plugin.getTreeMap().forEach((gameObject, choppers) ->
 		{
-			if (choppers <= 0 || Tree.findForestryTree(gameObject.getId()) == null)
+			if (choppers == null || choppers <= 0 || Tree.findForestryTree(gameObject.getId()) == null)
 			{
 				return;
 			}
 
-			String text = String.valueOf(choppers);
-			Point point = Perspective.getCanvasTextLocation(client, graphics, gameObject.getLocalLocation(), text, 0);
-			if (point == null)
+			final Color colorForChoppers = getColorForChoppers(choppers);
+			if (config.renderTreeHull())
 			{
-				return;
+				if (choppers < 10)
+				{
+					drawOutline(graphics, gameObject, colorForChoppers, 0x50, 1f);
+				}
+				else
+				{
+					drawOutline(graphics, gameObject, colorForChoppers, 0xB0, 2f);
+				}
 			}
-			Color color;
-			if (choppers >= 10)
-			{
-				color = Color.GREEN;
-			}
-			else if (choppers >= 7)
-			{
-				color = Color.YELLOW;
-			}
-			else if (choppers >= 4)
-			{
-				color = Color.ORANGE;
-			}
-			else
-			{
-				color = Color.RED;
-			}
-			OverlayUtil.renderTextLocation(graphics, point, text, color);
+
+			final String text = String.valueOf(choppers);
+			Optional.ofNullable(Perspective.getCanvasTextLocation(client, graphics, gameObject.getLocalLocation(), text, 0))
+				.ifPresent(point -> OverlayUtil.renderTextLocation(graphics, point, text, colorForChoppers));
 		});
 
 		return null;
+	}
+
+	private static void drawOutline(Graphics2D graphics,
+									GameObject gameObject,
+									Color colorForChoppers,
+									int alpha,
+									float strokeWidth)
+	{
+		Color outlineColor = ColorUtil.colorWithAlpha(colorForChoppers, alpha);
+		Stroke stroke = new BasicStroke(strokeWidth);
+		OverlayUtil.renderPolygon(graphics, gameObject.getConvexHull(), outlineColor, BLANK_COLOR, stroke);
+	}
+
+	private static Color getColorForChoppers(int choppers)
+	{
+		final float percent = Math.min(1f, choppers / 10f);
+		final float hue1 = rgbToHsbArray(Color.RED)[0];
+		final float hue2 = rgbToHsbArray(Color.GREEN)[0];
+		final float lerpedHue = hue1 + (hue2 - hue1) * percent;
+		return Color.getHSBColor(lerpedHue, 1f, 1f);
+	}
+
+	private static float[] rgbToHsbArray(Color color)
+	{
+		return Color.RGBtoHSB(color.getRed(), color.getGreen(), color.getBlue(), null);
 	}
 
 	private static final Random random = ThreadLocalRandom.current();
