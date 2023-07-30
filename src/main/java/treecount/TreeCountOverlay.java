@@ -3,9 +3,12 @@ package treecount;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
+import java.awt.Shape;
 import java.awt.Stroke;
+import java.awt.geom.Rectangle2D;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -16,7 +19,9 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.api.Perspective;
+import net.runelite.api.Point;
 import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.geometry.SimplePolygon;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -71,12 +76,57 @@ public class TreeCountOverlay extends Overlay
 				}
 			}
 
-			final String text = String.valueOf(choppers);
-			Optional.ofNullable(Perspective.getCanvasTextLocation(client, graphics, gameObject.getLocalLocation(), text, 0))
-				.ifPresent(point -> OverlayUtil.renderTextLocation(graphics, point, text, colorForChoppers));
+			centroidOfObjectHull(gameObject)
+				.ifPresent(point -> drawTextCentered(graphics, point, String.valueOf(choppers), colorForChoppers));
 		});
 
 		return null;
+	}
+
+	private static void drawTextCentered(Graphics2D graphics, Point point, String text, Color color)
+	{
+		final FontMetrics metrics = graphics.getFontMetrics(graphics.getFont());
+		Rectangle2D bounds = metrics.getStringBounds(text, graphics);
+		int x = point.getX() - (int) Math.round(bounds.getWidth()) / 2;
+		int y = point.getY() + (int) Math.round(bounds.getHeight()) / 2; // y coordinate is the baseline, not top
+		OverlayUtil.renderTextLocation(graphics, new Point(x, y), text, color);
+	}
+
+	private static Optional<Point> centroidOfObjectHull(GameObject gameObject)
+	{
+		final Shape convexHull = gameObject.getConvexHull();
+		if (!(convexHull instanceof SimplePolygon))
+		{
+			return Optional.empty();
+		}
+
+		return centroidOfPolygon((SimplePolygon) convexHull);
+	}
+
+	// https://en.wikipedia.org/wiki/Centroid#Of_a_polygon
+	private static Optional<Point> centroidOfPolygon(SimplePolygon poly)
+	{
+		long xSum = 0, ySum = 0, areaSum = 0;
+		for (int i = 0; i < poly.size(); i++)
+		{
+			final long currX = poly.getX(i);
+			final long currY = poly.getY(i);
+
+			// wrap around to the first point if we're on the last index
+			final int nextI = i == poly.size() - 1 ? 0 : i + 1;
+			final long nextX = poly.getX(nextI);
+			final long nextY = poly.getY(nextI);
+
+			final long areaSumComponent = (currX * nextY - nextX * currY);
+			areaSum += areaSumComponent;
+			xSum += (currX + nextX) * areaSumComponent;
+			ySum += (currY + nextY) * areaSumComponent;
+		}
+
+		final long divisor = areaSum * 3;
+		final long centroidX = xSum / divisor;
+		final long centroidY = ySum / divisor;
+		return Optional.of(new Point((int) centroidX, (int) centroidY));
 	}
 
 	private static void drawOutline(Graphics2D graphics,
