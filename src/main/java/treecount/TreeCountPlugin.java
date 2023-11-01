@@ -357,6 +357,7 @@ public class TreeCountPlugin extends Plugin
 	{
 		switch (actor.getAnimation())
 		{
+			// Regular axes
 			case AnimationID.WOODCUTTING_BRONZE:
 			case AnimationID.WOODCUTTING_IRON:
 			case AnimationID.WOODCUTTING_STEEL:
@@ -371,6 +372,18 @@ public class TreeCountPlugin extends Plugin
 			case AnimationID.WOODCUTTING_3A_AXE:
 			case AnimationID.WOODCUTTING_CRYSTAL:
 			case AnimationID.WOODCUTTING_TRAILBLAZER:
+
+			// Felling axes (Forestry Part 2)
+			case AnimationID.WOODCUTTING_2H_BRONZE:
+			case AnimationID.WOODCUTTING_2H_IRON:
+			case AnimationID.WOODCUTTING_2H_STEEL:
+			case AnimationID.WOODCUTTING_2H_BLACK:
+			case AnimationID.WOODCUTTING_2H_MITHRIL:
+			case AnimationID.WOODCUTTING_2H_ADAMANT:
+			case AnimationID.WOODCUTTING_2H_RUNE:
+			case AnimationID.WOODCUTTING_2H_DRAGON:
+			case AnimationID.WOODCUTTING_2H_CRYSTAL:
+			case AnimationID.WOODCUTTING_2H_3A:
 				return true;
 			default:
 				return false;
