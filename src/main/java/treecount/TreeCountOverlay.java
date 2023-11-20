@@ -9,6 +9,7 @@ import java.awt.Polygon;
 import java.awt.Shape;
 import java.awt.Stroke;
 import java.awt.geom.Rectangle2D;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -22,9 +23,7 @@ import net.runelite.api.Perspective;
 import net.runelite.api.Player;
 import net.runelite.api.Point;
 import net.runelite.api.coords.Angle;
-import net.runelite.api.coords.Direction;
 import net.runelite.api.coords.LocalPoint;
-import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.geometry.SimplePolygon;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
@@ -236,31 +235,22 @@ public class TreeCountOverlay extends Overlay
 
 	private void renderPlayersAdjacentToTrees(Graphics2D graphics)
 	{
-		plugin.getTreeTileMap().forEach((tree, treeTiles) -> {
-			int expectedCount = 0;
-			for (WorldPoint treeTile : treeTiles)
+		Map<GameObject, Integer> expectedChoppers = new HashMap<>();
+		for (Player player : client.getPlayers())
+		{
+			plugin.getAdjacentTrees(player).forEach(tree ->
 			{
-				for (Player player : client.getPlayers())
+				if (plugin.isWoodcutting(player))
 				{
-					for (Direction direction : Direction.values())
-					{
-						if (plugin.isWoodcutting(player) && plugin.neighborPoint(player.getWorldLocation(), direction).equals(treeTile))
-						{
-							expectedCount++;
-						}
-					}
+					expectedChoppers.put(tree, expectedChoppers.getOrDefault(tree, 0) + 1);
 				}
-			}
+			});
+		}
 
-			int finalExpectedCount = expectedCount;
-			if (finalExpectedCount == 0)
-			{
-				return;
-			}
+		expectedChoppers.forEach((tree, finalExpectedCount) ->
+		{
 			final Color colorForChoppers = getColorForChoppers(finalExpectedCount);
-			centroidOfObjectHull(tree)
-				.ifPresent(point -> drawTextCentered(graphics, new Point(point.getX(), point.getY() + 15), "Expected: " + finalExpectedCount, colorForChoppers));
-
+			centroidOfObjectHull(tree).ifPresent(point -> drawTextCentered(graphics, new Point(point.getX(), point.getY() + 15), "Expected: " + finalExpectedCount, colorForChoppers));
 		});
 	}
 }

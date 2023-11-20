@@ -365,9 +365,14 @@ public class TreeCountPlugin extends Plugin
 
 	boolean isWoodcutting(Actor actor)
 	{
+		return isWoodcuttingWithRegularAxe(actor) || isWoodcuttingWithFellingAxe(actor);
+	}
+
+	private boolean isWoodcuttingWithRegularAxe(Actor actor)
+	{
 		switch (actor.getAnimation())
 		{
-			// Regular axes
+			// Regular axe animation IDs
 			case AnimationID.WOODCUTTING_BRONZE:
 			case AnimationID.WOODCUTTING_IRON:
 			case AnimationID.WOODCUTTING_STEEL:
@@ -382,8 +387,17 @@ public class TreeCountPlugin extends Plugin
 			case AnimationID.WOODCUTTING_3A_AXE:
 			case AnimationID.WOODCUTTING_CRYSTAL:
 			case AnimationID.WOODCUTTING_TRAILBLAZER:
+				return true;
+			default:
+				return false;
+		}
+	}
 
-			// Felling axes (Forestry Part 2)
+	private boolean isWoodcuttingWithFellingAxe(Actor actor)
+	{
+		switch (actor.getAnimation())
+		{
+			// Felling axes (Forestry Part 2) animation IDs
 			case AnimationID.WOODCUTTING_2H_BRONZE:
 			case AnimationID.WOODCUTTING_2H_IRON:
 			case AnimationID.WOODCUTTING_2H_STEEL:
@@ -414,6 +428,17 @@ public class TreeCountPlugin extends Plugin
 
 		if (closestTree == null)
 		{
+			// Hotfix for #24 where players chopping with a felling axe could be chopping a tree that is not facing them
+			// This will treat the only adjacent tree as the tree the player is chopping
+			if (isWoodcutting(player))
+			{
+				List<GameObject> adjacentTrees = getAdjacentTrees(player);
+				if (adjacentTrees.size() == 1)
+				{
+					playerMap.put(player, adjacentTrees.get(0));
+					treeMap.merge(adjacentTrees.get(0), 1, Integer::sum);
+				}
+			}
 			return;
 		}
 
@@ -437,6 +462,22 @@ public class TreeCountPlugin extends Plugin
 		Direction direction = new Angle(actor.getOrientation()).getNearestDirection();
 		WorldPoint facingPoint = neighborPoint(actorLocation, direction);
 		return tileTreeMap.get(facingPoint);
+	}
+
+	List<GameObject> getAdjacentTrees(Actor actor)
+	{
+		WorldPoint actorLocation = actor.getWorldLocation();
+		List<GameObject> adjacentTrees = new ArrayList<>();
+		for (Direction direction : Direction.values())
+		{
+			WorldPoint neighborPoint = neighborPoint(actorLocation, direction);
+			GameObject tree = tileTreeMap.get(neighborPoint);
+			if (tree != null)
+			{
+				adjacentTrees.add(tree);
+			}
+		}
+		return adjacentTrees;
 	}
 
 	WorldPoint neighborPoint(WorldPoint point, Direction direction)
