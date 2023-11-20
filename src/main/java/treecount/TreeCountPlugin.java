@@ -96,7 +96,7 @@ public class TreeCountPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick gameTick)
 	{
-		if (isRegionInWoodcuttingGuild(client.getLocalPlayer().getWorldLocation().getRegionID()))
+		if (isRegionInWoodcuttingGuild(client.getLocalPlayer().getWorldLocation().getRegionID()) && !config.enableWCGuild())
 		{
 			return;
 		}
@@ -114,9 +114,10 @@ public class TreeCountPlugin extends Plugin
 		{
 			// Any missing players just in case, although it's not really required. Doesn't hurt since one time operation
 			client.getPlayers().forEach(player -> {
-				if (!player.equals(client.getLocalPlayer()))
+				if (!player.equals(client.getLocalPlayer()) || config.includeSelf())
 				{
 					playerMap.putIfAbsent(player, null);
+					// Initialize it to -1 because it will be updated when the PlayerOrientationChanged event is fired
 					playerOrientationMap.put(player, -1);
 				}
 			});
@@ -158,7 +159,7 @@ public class TreeCountPlugin extends Plugin
 		// Event runs first upon login
 		GameObject gameObject = event.getGameObject();
 
-		if (isRegionInWoodcuttingGuild(gameObject.getWorldLocation().getRegionID()))
+		if (isRegionInWoodcuttingGuild(gameObject.getWorldLocation().getRegionID()) && !config.enableWCGuild())
 		{
 			return;
 		}
@@ -201,7 +202,7 @@ public class TreeCountPlugin extends Plugin
 	public void onGameObjectDespawned(final GameObjectDespawned event)
 	{
 		final GameObject gameObject = event.getGameObject();
-		if (isRegionInWoodcuttingGuild(gameObject.getWorldLocation().getRegionID()))
+		if (isRegionInWoodcuttingGuild(gameObject.getWorldLocation().getRegionID()) && !config.enableWCGuild())
 		{
 			return;
 		}
@@ -235,28 +236,36 @@ public class TreeCountPlugin extends Plugin
 	public void onPlayerSpawned(final PlayerSpawned event)
 	{
 		// Event runs second upon login
-		Player player = event.getPlayer();
-		log.debug("Player {} spawned at {}", player.getName(), player.getWorldLocation());
-
-		if (player.equals(client.getLocalPlayer()))
-		{
-			return;
-		}
-
-		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()))
-		{
-			return;
-		}
 
 		if (firstRun)
 		{
-			playerMap.put(player, null);
 			return;
 		}
 
-		if (isWoodcutting(player))
+		Player player = event.getPlayer();
+		log.debug("Player {} spawned at {}", player.getName(), player.getWorldLocation());
+
+		if (player.equals(client.getLocalPlayer()) && !config.includeSelf())
 		{
-			addToTreeFocusedMaps(player);
+			return;
+		}
+		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()) && !config.enableWCGuild())
+		{
+			return;
+		}
+
+		// Sometimes this event is fired after the onAnimationChanged event and as a result, the chopped tree count
+		// is incorrectly incremented, so don't add the player to the map if they are already in it
+		if (!playerMap.containsKey(player))
+		{
+			playerMap.put(player, null);
+			playerOrientationMap.put(player, player.getOrientation());
+
+			// Most of the time the player won't have an animation, but since we're already checking we should be safe
+			if (isWoodcutting(player))
+			{
+				addToTreeFocusedMaps(player);
+			}
 		}
 	}
 
@@ -264,23 +273,19 @@ public class TreeCountPlugin extends Plugin
 	public void onPlayerDespawned(final PlayerDespawned event)
 	{
 		Player player = event.getPlayer();
+		log.debug("Player {} despawned at {}", player.getName(), player.getWorldLocation());
 
-		if (player.equals(client.getLocalPlayer()))
+		if (player.equals(client.getLocalPlayer()) && !config.includeSelf())
 		{
 			return;
 		}
 
-		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()))
+		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()) && !config.enableWCGuild())
 		{
 			return;
 		}
 
-		if (firstRun)
-		{
-			playerMap.remove(player);
-			playerOrientationMap.remove(player);
-			return;
-		}
+		playerOrientationMap.remove(player);
 
 		removeFromTreeMaps(player);
 	}
@@ -296,15 +301,14 @@ public class TreeCountPlugin extends Plugin
 		if (event.getActor() instanceof Player)
 		{
 			Player player = (Player) event.getActor();
-
-			if (Objects.equals(player, client.getLocalPlayer()))
+			if (Objects.equals(player, client.getLocalPlayer()) && !config.includeSelf())
 			{
 				return;
 			}
 
 			// Check combat level to avoid NPE. Not sure why this happens, maybe the Player isn't really a player?
 			// The player isn't null, but all the fields are
-			if (player.getCombatLevel() != 0 && isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()))
+			if (player.getCombatLevel() != 0 && (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()) && !config.enableWCGuild()))
 			{
 				return;
 			}
@@ -332,15 +336,21 @@ public class TreeCountPlugin extends Plugin
 		}
 
 		Player player = event.getPlayer();
+		Direction previousDirection = new Angle(event.getPreviousOrientation()).getNearestDirection();
+		Direction currentDirection = new Angle(event.getCurrentOrientation()).getNearestDirection();
 
-		log.debug("Player {} orientation changed from {} to {}", player.getName(), event.getPreviousOrientation(), event.getCurrentOrientation());
+		log.debug("Player {} orientation changed from {} ({}) to {} ({})",
+			player.getName(),
+			event.getPreviousOrientation(), previousDirection,
+			event.getCurrentOrientation(), currentDirection
+		);
 
-		if (player.equals(client.getLocalPlayer()))
+		if (player.equals(client.getLocalPlayer()) && !config.includeSelf())
 		{
 			return;
 		}
 
-		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()))
+		if (isRegionInWoodcuttingGuild(player.getWorldLocation().getRegionID()) && !config.enableWCGuild())
 		{
 			return;
 		}
@@ -353,7 +363,7 @@ public class TreeCountPlugin extends Plugin
 		}
 	}
 
-	private boolean isWoodcutting(Actor actor)
+	boolean isWoodcutting(Actor actor)
 	{
 		switch (actor.getAnimation())
 		{
@@ -393,10 +403,20 @@ public class TreeCountPlugin extends Plugin
 	void addToTreeFocusedMaps(Player player)
 	{
 		GameObject closestTree = findClosestFacingTree(player);
+
+		if (player != client.getLocalPlayer() || config.includeSelf())
+		{
+			Direction direction = new Angle(player.getOrientation()).getNearestDirection();
+			log.debug("Actor: {}, Direction: {}, Closest Facing Tree: {}, Count: {}", player.getName(), direction,
+				closestTree != null ? closestTree.getWorldLocation() : "NULL",
+				closestTree != null ? treeMap.get(closestTree) : -1);
+		}
+
 		if (closestTree == null)
 		{
 			return;
 		}
+
 		playerMap.put(player, closestTree);
 		treeMap.merge(closestTree, 1, Integer::sum);
 	}
@@ -405,7 +425,10 @@ public class TreeCountPlugin extends Plugin
 	{
 		GameObject tree = playerMap.get(player);
 		playerMap.remove(player);
-		treeMap.computeIfPresent(tree, (unused, value) -> Math.max(0, value - 1));
+		treeMap.computeIfPresent(tree, (unused, value) -> {
+			log.debug("Removing player {} from tree {}. {} -> {}", player.getName(), tree.getWorldLocation(), value, Math.max(0, value - 1));
+			return Math.max(0, value - 1);
+		});
 	}
 
 	GameObject findClosestFacingTree(Actor actor)
@@ -413,14 +436,10 @@ public class TreeCountPlugin extends Plugin
 		WorldPoint actorLocation = actor.getWorldLocation();
 		Direction direction = new Angle(actor.getOrientation()).getNearestDirection();
 		WorldPoint facingPoint = neighborPoint(actorLocation, direction);
-		if (actor != client.getLocalPlayer())
-		{
-			log.debug("Actor: {}, Direction: {}", actor.getName(), direction);
-		}
 		return tileTreeMap.get(facingPoint);
 	}
 
-	private WorldPoint neighborPoint(WorldPoint point, Direction direction)
+	WorldPoint neighborPoint(WorldPoint point, Direction direction)
 	{
 		switch (direction)
 		{
