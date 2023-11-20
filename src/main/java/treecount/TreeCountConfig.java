@@ -7,7 +7,7 @@ import net.runelite.client.config.ConfigItem;
 @ConfigGroup("treecount")
 public interface TreeCountConfig extends Config
 {
-	boolean DEBUG = false;
+	boolean DEBUG = true;
 
 	@ConfigItem(
 		keyName = "renderTreeHull",
@@ -21,7 +21,7 @@ public interface TreeCountConfig extends Config
 
 	@ConfigItem(
 		keyName = "renderTreeTiles",
-		name = "(Debug) Show tree tiles",
+		name = "(Debug) Show Tree Tiles",
 		description = "Configures whether to show debug info of tree tiles",
 		hidden = !DEBUG
 	)
@@ -32,11 +32,55 @@ public interface TreeCountConfig extends Config
 
 	@ConfigItem(
 		keyName = "renderFacingTree",
-		name = "(Debug) Show facing tree",
+		name = "(Debug) Show Facing Tree",
 		description = "Configures whether to show debug info about the tree the player is facing",
 		hidden = !DEBUG
 	)
 	default boolean renderFacingTree()
+	{
+		return false;
+	}
+
+	@ConfigItem(
+		keyName = "includeSelf",
+		name = "(Debug) Include Self",
+		description = "Configures whether to help with debug info by including the player in the tree count",
+		hidden = !DEBUG
+	)
+	default boolean includeSelf()
+	{
+		return false;
+	}
+
+	@ConfigItem(
+		keyName = "enableWCGuild",
+		name = "(Debug) Enable Woodcutting Guild",
+		description = "Configures whether to help with debug info by allowing the woodcutting guild to be used",
+		hidden = !DEBUG
+	)
+	default boolean enableWCGuild()
+	{
+		return false;
+	}
+
+	@ConfigItem(
+		keyName = "renderPlayerOrientation",
+		name = "(Debug) Show Player Orientation",
+		description = "Configures whether to show debug info about the tree hull",
+		hidden = !DEBUG
+	)
+	default boolean renderPlayerOrientation()
+	{
+		return false;
+	}
+
+	@ConfigItem(
+		keyName = "renderExpectedChoppers",
+		name = "(Debug) Show Expected Choppers",
+		description = "Configures whether to show debug info about the expected number of people chopping a tree",
+		hidden = !DEBUG
+	)
+	default boolean renderExpectedChoppers()
 	{
 		return false;
 	}

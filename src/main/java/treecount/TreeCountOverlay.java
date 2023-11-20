@@ -19,8 +19,12 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.api.Perspective;
+import net.runelite.api.Player;
 import net.runelite.api.Point;
+import net.runelite.api.coords.Angle;
+import net.runelite.api.coords.Direction;
 import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.geometry.SimplePolygon;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
@@ -49,7 +53,7 @@ public class TreeCountOverlay extends Overlay
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
-		if (plugin.isRegionInWoodcuttingGuild(client.getLocalPlayer().getWorldLocation().getRegionID()))
+		if (plugin.isRegionInWoodcuttingGuild(client.getLocalPlayer().getWorldLocation().getRegionID()) && !config.enableWCGuild())
 		{
 			return null;
 		}
@@ -170,6 +174,15 @@ public class TreeCountOverlay extends Overlay
 			renderTreeTiles(graphics);
 		}
 
+		if (config.renderPlayerOrientation())
+		{
+			renderPlayerOrientation(graphics);
+		}
+
+		if (config.renderExpectedChoppers())
+		{
+			renderPlayersAdjacentToTrees(graphics);
+		}
 	}
 
 	private void renderFacingTree(Graphics2D graphics)
@@ -206,5 +219,48 @@ public class TreeCountOverlay extends Overlay
 				);
 			}
 		);
+	}
+
+	private void renderPlayerOrientation(Graphics2D graphics)
+	{
+		client.getPlayers().forEach(player -> {
+			Angle playerAngle = new Angle(player.getOrientation());
+			String text = player.getOrientation() + " | " + playerAngle.getNearestDirection();
+			Point textPoint = player.getCanvasTextLocation(graphics, text, player.getLogicalHeight() + 40);
+			if (textPoint != null)
+			{
+				OverlayUtil.renderTextLocation(graphics, textPoint, text, Color.GREEN);
+			}
+		});
+	}
+
+	private void renderPlayersAdjacentToTrees(Graphics2D graphics)
+	{
+		plugin.getTreeTileMap().forEach((tree, treeTiles) -> {
+			int expectedCount = 0;
+			for (WorldPoint treeTile : treeTiles)
+			{
+				for (Player player : client.getPlayers())
+				{
+					for (Direction direction : Direction.values())
+					{
+						if (plugin.isWoodcutting(player) && plugin.neighborPoint(player.getWorldLocation(), direction).equals(treeTile))
+						{
+							expectedCount++;
+						}
+					}
+				}
+			}
+
+			int finalExpectedCount = expectedCount;
+			if (finalExpectedCount == 0)
+			{
+				return;
+			}
+			final Color colorForChoppers = getColorForChoppers(finalExpectedCount);
+			centroidOfObjectHull(tree)
+				.ifPresent(point -> drawTextCentered(graphics, new Point(point.getX(), point.getY() + 15), "Expected: " + finalExpectedCount, colorForChoppers));
+
+		});
 	}
 }
