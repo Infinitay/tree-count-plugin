@@ -31,6 +31,7 @@ import net.runelite.api.events.PlayerDespawned;
 import net.runelite.api.events.PlayerSpawned;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -91,6 +92,25 @@ public class TreeCountPlugin extends Plugin
 		playerOrientationMap.clear();
 		previousPlane = -1;
 		firstRun = true;
+	}
+
+	@Subscribe
+	public void onConfigChanged(ConfigChanged changedConfig)
+	{
+		if (changedConfig.getKey().equals("includeSelf"))
+		{
+			if (Boolean.valueOf(changedConfig.getNewValue()))
+			{
+				if (isWoodcutting(client.getLocalPlayer()))
+				{
+					addToTreeFocusedMaps(client.getLocalPlayer());
+				}
+			}
+			else
+			{
+				removeFromTreeMaps(client.getLocalPlayer());
+			}
+		}
 	}
 
 	@Subscribe
@@ -432,7 +452,7 @@ public class TreeCountPlugin extends Plugin
 			// This will treat the only adjacent tree as the tree the player is chopping
 			if (isWoodcutting(player))
 			{
-				List<GameObject> adjacentTrees = getAdjacentTrees(player);
+				List<GameObject> adjacentTrees = getAdjacentTrees(player, false);
 				if (adjacentTrees.size() == 1)
 				{
 					playerMap.put(player, adjacentTrees.get(0));
@@ -464,7 +484,7 @@ public class TreeCountPlugin extends Plugin
 		return tileTreeMap.get(facingPoint);
 	}
 
-	List<GameObject> getAdjacentTrees(Actor actor)
+	List<GameObject> getAdjacentTrees(Actor actor, boolean ignoreNonForestryTrees)
 	{
 		WorldPoint actorLocation = actor.getWorldLocation();
 		List<GameObject> adjacentTrees = new ArrayList<>();
@@ -472,7 +492,7 @@ public class TreeCountPlugin extends Plugin
 		{
 			WorldPoint neighborPoint = neighborPoint(actorLocation, direction);
 			GameObject tree = tileTreeMap.get(neighborPoint);
-			if (tree != null)
+			if (tree != null && (!ignoreNonForestryTrees || (ignoreNonForestryTrees && Tree.findForestryTree(tree.getId()) != null)))
 			{
 				adjacentTrees.add(tree);
 			}
