@@ -184,7 +184,7 @@ public class TreeCountPlugin extends Plugin
 			return;
 		}
 
-		Tree tree = Tree.findTree(gameObject.getId());
+		Tree tree = Tree.findForestryTree(gameObject.getId());
 
 		if (tree != null)
 		{
@@ -226,7 +226,7 @@ public class TreeCountPlugin extends Plugin
 		{
 			return;
 		}
-		Tree tree = Tree.findTree(gameObject.getId());
+		Tree tree = Tree.findForestryTree(gameObject.getId());
 		if (tree != null && !tree.equals(Tree.REGULAR_TREE))
 		{
 			treeMap.remove(gameObject);
@@ -452,7 +452,7 @@ public class TreeCountPlugin extends Plugin
 			// This will treat the only adjacent tree as the tree the player is chopping
 			if (isWoodcutting(player))
 			{
-				List<GameObject> adjacentTrees = getAdjacentTrees(player, false);
+				List<GameObject> adjacentTrees = getAdjacentTrees(player, true);
 				if (adjacentTrees.size() == 1)
 				{
 					playerMap.put(player, adjacentTrees.get(0));
