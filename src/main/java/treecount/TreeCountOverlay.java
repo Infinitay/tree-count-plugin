@@ -238,7 +238,11 @@ public class TreeCountOverlay extends Overlay
 		Map<GameObject, Integer> expectedChoppers = new HashMap<>();
 		for (Player player : client.getPlayers())
 		{
-			plugin.getAdjacentTrees(player).forEach(tree ->
+			if (player.equals(client.getLocalPlayer()) && !config.includeSelf())
+			{
+				continue;
+			}
+			plugin.getAdjacentTrees(player, false).forEach(tree ->
 			{
 				if (plugin.isWoodcutting(player))
 				{
