@@ -27,6 +27,7 @@ package treecount;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import lombok.Getter;
+import net.runelite.api.NullObjectID;
 import net.runelite.api.ObjectID;
 import static net.runelite.api.ObjectID.*;
 
@@ -41,7 +42,7 @@ public enum Tree
 	ARCTIC_PINE_TREE(true, ObjectID.ARCTIC_PINE_TREE),
 	HOLLOW_TREE(true, HOLLOW_TREE_10821, HOLLOW_TREE_10830),
 	MAHOGANY_TREE(true, ObjectID.MAHOGANY_TREE, ObjectID.MAHOGANY_TREE_40760, ObjectID.MAHOGANY),
-	YEW_TREE(true, ObjectID.YEW_TREE_10822, ObjectID.YEW_TREE_36683, ObjectID.YEW_TREE_40756, ObjectID.YEW_TREE_42391),
+	YEW_TREE(true, ObjectID.YEW_TREE_10822, NullObjectID.NULL_10823, ObjectID.YEW_TREE_36683, ObjectID.YEW_TREE_40756, ObjectID.YEW_TREE_42391), // 10823 is an imposter yew tree (see varrock or gnome yews)
 	MAGIC_TREE(true, MAGIC_TREE_10834, MAGIC_TREE_36685), // 36685 seems deprecated or placeholder for now, 0 locations as of July 2023
 	REDWOOD_TREE(true, ObjectID.REDWOOD_TREE, ObjectID.REDWOOD_TREE_29670, ObjectID.REDWOOD_TREE_34284, ObjectID.REDWOOD_TREE_34286, ObjectID.REDWOOD_TREE_34288, ObjectID.REDWOOD_TREE_34290),
 
