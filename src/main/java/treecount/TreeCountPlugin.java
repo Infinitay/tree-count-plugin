@@ -188,7 +188,7 @@ public class TreeCountPlugin extends Plugin
 
 		if (tree != null)
 		{
-			log.debug("Tree {} spawned at {}", tree, gameObject.getLocalLocation());
+			// log.debug("Tree {} spawned at {}", tree, gameObject.getLocalLocation());
 			treeMap.put(gameObject, 0);
 			List<WorldPoint> points = getPoints(gameObject);
 			treeTileMap.put(gameObject, points);
@@ -263,7 +263,7 @@ public class TreeCountPlugin extends Plugin
 		}
 
 		Player player = event.getPlayer();
-		log.debug("Player {} spawned at {}", player.getName(), player.getWorldLocation());
+		// log.debug("Player {} spawned at {}", player.getName(), player.getWorldLocation());
 
 		if (player.equals(client.getLocalPlayer()) && !config.includeSelf())
 		{
@@ -293,7 +293,7 @@ public class TreeCountPlugin extends Plugin
 	public void onPlayerDespawned(final PlayerDespawned event)
 	{
 		Player player = event.getPlayer();
-		log.debug("Player {} despawned at {}", player.getName(), player.getWorldLocation());
+		// log.debug("Player {} despawned at {}", player.getName(), player.getWorldLocation());
 
 		if (player.equals(client.getLocalPlayer()) && !config.includeSelf())
 		{
@@ -359,11 +359,11 @@ public class TreeCountPlugin extends Plugin
 		Direction previousDirection = new Angle(event.getPreviousOrientation()).getNearestDirection();
 		Direction currentDirection = new Angle(event.getCurrentOrientation()).getNearestDirection();
 
-		log.debug("Player {} orientation changed from {} ({}) to {} ({})",
-			player.getName(),
-			event.getPreviousOrientation(), previousDirection,
-			event.getCurrentOrientation(), currentDirection
-		);
+		// log.debug("Player {} orientation changed from {} ({}) to {} ({})",
+		//	player.getName(),
+		//	event.getPreviousOrientation(), previousDirection,
+		//	event.getCurrentOrientation(), currentDirection
+		// );
 
 		if (player.equals(client.getLocalPlayer()) && !config.includeSelf())
 		{
@@ -441,9 +441,9 @@ public class TreeCountPlugin extends Plugin
 		if (player != client.getLocalPlayer() || config.includeSelf())
 		{
 			Direction direction = new Angle(player.getOrientation()).getNearestDirection();
-			log.debug("Actor: {}, Direction: {}, Closest Facing Tree: {}, Count: {}", player.getName(), direction,
-				closestTree != null ? closestTree.getWorldLocation() : "NULL",
-				closestTree != null ? treeMap.get(closestTree) : -1);
+			// log.debug("Actor: {}, Direction: {}, Closest Facing Tree: {}, Count: {}", player.getName(), direction,
+			//	closestTree != null ? closestTree.getWorldLocation() : "NULL",
+			//	closestTree != null ? treeMap.get(closestTree) : -1);
 		}
 
 		if (closestTree == null)
@@ -471,7 +471,7 @@ public class TreeCountPlugin extends Plugin
 		GameObject tree = playerMap.get(player);
 		playerMap.remove(player);
 		treeMap.computeIfPresent(tree, (unused, value) -> {
-			log.debug("Removing player {} from tree {}. {} -> {}", player.getName(), tree.getWorldLocation(), value, Math.max(0, value - 1));
+			// log.debug("Removing player {} from tree {}. {} -> {}", player.getName(), tree.getWorldLocation(), value, Math.max(0, value - 1));
 			return Math.max(0, value - 1);
 		});
 	}
