@@ -1,5 +1,6 @@
 package treecount;
 
+import java.awt.Color;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
@@ -18,6 +19,26 @@ public interface TreeCountConfig extends Config
 	{
 		return false;
 	}
+
+    @ConfigItem(
+            keyName = "dynamicColors",
+            name = "Dynamic Color",
+            description = "Use dynamic colors for the chopper count. If disabled, Text Color will be used"
+    )
+    default boolean dynamicColors()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "textColor",
+            name = "Text Color",
+            description = "The color of the tree count text."
+    )
+    default Color textColor()
+    {
+        return Color.YELLOW;
+    }
 
 	@ConfigItem(
 		keyName = "renderTreeTiles",

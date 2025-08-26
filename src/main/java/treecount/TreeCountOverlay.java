@@ -143,14 +143,23 @@ public class TreeCountOverlay extends Overlay
 		OverlayUtil.renderPolygon(graphics, gameObject.getConvexHull(), outlineColor, BLANK_COLOR, stroke);
 	}
 
-	private static Color getColorForChoppers(int choppers)
+	private Color getColorForChoppers(int choppers)
 	{
-		final float percent = Math.min(1f, choppers / 10f);
-		final float hue1 = rgbToHsbArray(Color.RED)[0];
-		final float hue2 = rgbToHsbArray(Color.GREEN)[0];
-		final float lerpedHue = hue1 + (hue2 - hue1) * percent;
-		return Color.getHSBColor(lerpedHue, 1f, 1f);
+        if(config.dynamicColors()) {
+            return getDynamicColor(choppers);
+        } else {
+            return config.textColor();
+        }
 	}
+
+    private static Color getDynamicColor(int choppers)
+    {
+        final float percent = Math.min(1f, choppers / 10f);
+        final float hue1 = rgbToHsbArray(Color.RED)[0];
+        final float hue2 = rgbToHsbArray(Color.GREEN)[0];
+        final float lerpedHue = hue1 + (hue2 - hue1) * percent;
+        return Color.getHSBColor(lerpedHue, 1f, 1f);
+    }
 
 	private static float[] rgbToHsbArray(Color color)
 	{
